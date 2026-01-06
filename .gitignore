@@ -1,0 +1,7 @@
+.env
+*.json
+*.txt
+*.log
+cookies/
+accounts/
+proxies/
