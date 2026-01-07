@@ -237,17 +237,6 @@ class AmazonCreator:
 			return {'status': 'error', 'message': f'Verify OTP button error: {e}'}
 		return {'status': 'success','message': 'Verify OTP success'}
 	def add_mobile_number(self, thread_name, phone_for_input, original_phone=None):
-		"""
-		Add and verify mobile number using HeroSMSPhoneManager.
-		
-		Args:
-			thread_name: Thread identifier for logging
-			phone_for_input: Phone number to input into Amazon form (may be cleaned)
-			original_phone: Original phone number from HeroSMS (for SMS retrieval)
-		
-		Returns:
-			dict: {'status': 'success'|'error'|'skipped', 'message': str}
-		"""
 		# Use original_phone for SMS retrieval, fallback to phone_for_input if not provided
 		if original_phone is None:
 			original_phone = phone_for_input
@@ -375,46 +364,49 @@ class AmazonCreator:
 		faker = Faker("en_US")
 		full_name = faker.name()
 		password = faker.password(length=12)
+		toolhelper = ToolHelper()
+		outlook_full_data = toolhelper.read_email()
+		if not outlook_full_data:
+			return {'status': 'error', 'message': 'No email available'}
+		email = outlook_full_data['email']
+		password = outlook_full_data['password']
+		refresh_token = outlook_full_data['refresh_token']
+		client_id = outlook_full_data['client_id']
 		try:
 			result = self.continue_captcha()
 			if result['status'] != 'success' and result['status'] != 'skipped':
 				logger.error(f"{thread_name} {result['message']}")
 				return {'status': 'error','message': result['message']}
 			self.driver.get("https://www.amazon.com/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F%3Fref_%3Dnav_ya_signin&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0")
-			toolhelper = ToolHelper()
-			outlook_full_data = toolhelper.read_email()
-			if not outlook_full_data:
-				return {'status': 'error', 'message': 'No email available'}
-			email = outlook_full_data['email']
-			password = outlook_full_data['password']
-			refresh_token = outlook_full_data['refresh_token']
-			client_id = outlook_full_data['client_id']
 			result = self.create_account(email=email, full_name=full_name, password=password)
 			if result['status'] != 'success':
+				toolhelper.write_email(email=email, password=password, refresh_token=refresh_token, client_id=client_id)
 				logger.error(f"{thread_name} {result['message']}")
 				return {'status': 'error','message': result['message']}
 			result = self.captcha_solving()
 			if result['status'] == 'blocked':
+				toolhelper.write_email(email=email, password=password, refresh_token=refresh_token, client_id=client_id)
 				logger.warning(f"{thread_name} {result['message']}")
 				return {'status': 'blocked','message': result['message']}
-			if result['status'] != 'success' and result['status'] != 'skipped':
+			if result['status'] == 'error':
+				toolhelper.write_email(email=email, password=password, refresh_token=refresh_token, client_id=client_id)
 				logger.error(f"{thread_name} {result['message']}")
 				return {'status': 'error','message': result['message']}
+			logger.info(f"{thread_name} captcha result: {result['status']}")
 			result = self.verify_email_address(email=email, refresh_token=refresh_token, client_id=client_id, thread_name=thread_name)
 			if result['status'] != 'success':
+				toolhelper.write_email(email=email, password=password, refresh_token=refresh_token, client_id=client_id)
 				logger.error(f"{thread_name} {result['message']}")
 				return {'status': 'error','message': result['message']}
-			# 🔒 ACQUIRE PHONE (LOCK BẮT ĐẦU TỪ ĐÂY)
 			logger.warning(f"{thread_name} Acquiring phone from HeroSMS...")
 			phone = self.phone_manager.acquire_phone()
 			logger.warning(f"{thread_name} Phone acquired: {phone}")
 			if not phone:
+				toolhelper.write_email(email=email, password=password, refresh_token=refresh_token, client_id=client_id)
 				return {'status': 'error', 'message': 'No phone available'}
-			# Save original phone for HeroSMS API calls
 			original_phone = phone
-			# Clean phone for Amazon input (remove country code if needed)
 			if phone.startswith("55"):
-				phone_for_input = phone[2:]  # Remove Brazil prefix for input
+				phone_for_input = phone[2:]
 			else:
 				phone_for_input = phone
 			result = self.add_mobile_number(thread_name, phone_for_input, original_phone)
@@ -424,9 +416,11 @@ class AmazonCreator:
 				phone_success = False
 			else:
 				phone_success = False
+				toolhelper.write_email(email=email, password=password, refresh_token=refresh_token, client_id=client_id)
 				return result
 			current_url = self.driver.current_url
 			if "new_account=1" not in current_url:
+				toolhelper.write_email(email=email, password=password, refresh_token=refresh_token, client_id=client_id)
 				return {'status': 'error', 'message': 'Account creation failed'}
 			logger.warning(f"{thread_name} Account created successfully")
 			return {'status': 'success', 'message': 'Account created successfully'}

@@ -228,50 +228,10 @@ class PhoneManager:
 # ==================== HEROSMS INTEGRATION ====================
 
 class HeroSMSPhoneManager(PhoneManager):
-	"""
-	Dynamic phone manager that auto-fetches numbers from HeroSMS API.
-	
-	Features:
-	- Automatically requests phone numbers from HeroSMS
-	- Manages activation lifecycle (get number, check status, cancel/complete)
-	- Thread-safe operations
-	- Automatic cleanup on release
-	
-	Usage:
-		from herosms import HeroSMS
-		
-		hero_client = HeroSMS(api_key="YOUR_KEY")
-		manager = HeroSMSPhoneManager(
-			hero_client=hero_client,
-			service='am',  # Amazon
-			country=6,     # USA
-			pool_size=5,   # Pre-fetch 5 numbers
-			max_uses=2
-		)
-		
-		# Use like normal PhoneManager
-		phone = manager.acquire_phone()
-		# ... do registration ...
-		manager.release_phone(phone, success=True)
-	"""
-	
 	def __init__(self, hero_client, service: str, country: int, 
 	             pool_size: int = 5, max_uses: int = 2, 
 	             operator: Optional[str] = None, max_price: Optional[float] = None,
 	             timeout_seconds: int = 300):
-		"""
-		Initialize HeroSMSPhoneManager
-		
-		Args:
-			hero_client: HeroSMS client instance
-			service: Service code (e.g., 'am' for Amazon)
-			country: Country code (numeric)
-			pool_size: Number of phones to pre-fetch (default: 5)
-			max_uses: Max uses per phone (default: 2)
-			operator: Optional operator filter
-			max_price: Optional max price
-			timeout_seconds: Timeout for locked phones (default: 300s)
-		"""
 		# Initialize with empty phone list
 		super().__init__([], timeout_seconds)
 		
@@ -291,10 +251,6 @@ class HeroSMSPhoneManager(PhoneManager):
 		self._refill_pool()
 	
 	def _refill_pool(self):
-		"""
-		Refill phone pool from HeroSMS API.
-		**IMPORTANT:** Must be called with lock already held (from acquire_phone)!
-		"""
 		# DO NOT use 'with self._condition:' here - already locked by caller!
 		# Count how many we need
 		available_count = sum(1 for p in self._phones.values() 
@@ -340,10 +296,6 @@ class HeroSMSPhoneManager(PhoneManager):
 				break
 	
 	def acquire_phone(self, thread_id: Optional[str] = None, max_wait_seconds: int = 30) -> Optional[str]:
-		"""
-		Acquire phone from HeroSMS pool.
-		Auto-refills pool if running low.
-		"""
 		if thread_id is None:
 			thread_id = threading.current_thread().name
 		
@@ -383,14 +335,6 @@ class HeroSMSPhoneManager(PhoneManager):
 				self._condition.wait(timeout=min(remaining_time, 1.0))
 	
 	def release_phone(self, phone_number: str, thread_id: Optional[str] = None, success: bool = True) -> bool:
-		"""
-		Release phone and manage HeroSMS activation status.
-		
-		Args:
-			phone_number: Phone to release
-			thread_id: Thread owner (auto-detected if None)
-			success: If True, complete activation; if False, cancel it
-		"""
 		if thread_id is None:
 			thread_id = threading.current_thread().name
 		
@@ -434,25 +378,6 @@ class HeroSMSPhoneManager(PhoneManager):
 			return True
 	
 	def get_sms_code(self, phone_number: str, max_retries: int = 30, retry_interval: int = 10) -> Optional[str]:
-		"""
-		Wait for and retrieve SMS code for a phone number.
-		
-		Args:
-			phone_number: Phone number to check
-			max_retries: Max number of retries (default: 30)
-			retry_interval: Seconds between retries (default: 10)
-		
-		Returns:
-			SMS code if received, None if timeout or error
-		
-		Example:
-			>>> phone = manager.acquire_phone()
-			>>> # ... send registration request ...
-			>>> code = manager.get_sms_code(phone, max_retries=30)
-			>>> if code:
-			>>>     # Use code for verification
-			>>>     manager.release_phone(phone, success=True)
-		"""
 		with self._lock:
 			if phone_number not in self._phones:
 				return None
@@ -496,14 +421,6 @@ class HeroSMSPhoneManager(PhoneManager):
 # ==================== EXAMPLE USAGE ====================
 
 def worker_thread(phone_manager: PhoneManager, task_count: int):
-	"""
-	Example worker that simulates account registration.
-	Thread ID is auto-detected from threading.current_thread().name
-	
-	Args:
-		phone_manager: Shared PhoneManager instance
-		task_count: Number of registrations to perform
-	"""
 	thread_id = threading.current_thread().name
 	
 	for i in range(task_count):

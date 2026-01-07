@@ -87,4 +87,52 @@ class ToolHelper:
 		
 		return None
 
-	
+	def write_email(self, email, password, refresh_token, client_id, file_path="mail.txt", max_retries=10, retry_delay=0.1):
+		line_to_write = f"{email}|{password}|{refresh_token}|{client_id}\n"
+		
+		for attempt in range(max_retries):
+			try:
+				# Create file if doesn't exist
+				if not os.path.exists(file_path):
+					with open(file_path, 'w', encoding='utf-8') as f:
+						pass
+				
+				# Open file in append mode with lock
+				with open(file_path, 'a', encoding='utf-8') as f:
+					# Get file size for locking
+					f.seek(0, 2)  # Seek to end
+					size = f.tell()
+					
+					# Lock entire file
+					if platform.system() == "Windows":
+						# Windows: lock from current position
+						if size > 0:
+							msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+					else:
+						# Unix/Linux: exclusive lock
+						fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+					
+					try:
+						# Write data to end of file
+						f.write(line_to_write)
+						f.flush()  # Force write to disk
+						
+					finally:
+						# Always unlock
+						if platform.system() == "Windows":
+							if size > 0:
+								msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+						else:
+							fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+				
+				print(f"[write_email] Successfully wrote: {email}")
+				return True
+				
+			except Exception as e:
+				if attempt < max_retries - 1:
+					time.sleep(retry_delay)
+				else:
+					return False
+		
+		return False
+

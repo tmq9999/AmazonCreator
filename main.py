@@ -33,7 +33,7 @@ def worker_thread(thread_id, stop_flag, position, phone_manager,proxy=None):
 				uuid = hidemium.create_profile_by_default(33296)
 				if not uuid:
 					logger.error(f"{thread_name} Failed to create profile")
-					break
+					continue
 				# 2. Open profile with proxy (optional)
 				logger.warning(f"{thread_name} Opening profile {uuid}...")
 				remote_port, execute_path = hidemium.open_profile(
@@ -81,7 +81,8 @@ def worker_thread(thread_id, stop_flag, position, phone_manager,proxy=None):
 					except:
 						pass
 					uuid = None
-				break
+				time.sleep(3)
+				continue   # 🔁 restart vòng while
 	except KeyboardInterrupt:
 		logger.error(f"⛔ {thread_name} stopped by user.")
 	finally:
@@ -96,7 +97,6 @@ def worker_thread(thread_id, stop_flag, position, phone_manager,proxy=None):
 			except:
 				pass
 def main():
-	"""Main function with shared HeroSMSPhoneManager"""
 	logger.warning('=' * 60)
 	logger.warning('AMAZON CREATOR WITH HIDEMIUM + HEROSMS VER 2.0')
 	logger.warning('=' * 60)
