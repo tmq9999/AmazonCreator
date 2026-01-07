@@ -75,15 +75,20 @@ class PhoneManager:
 		if thread_id is None:
 			thread_id = threading.current_thread().name
 		
+		print(f"[DEBUG ACQUIRE START] {thread_id} - Function entered, about to acquire condition lock")
 		end_time = time.time() + max_wait_seconds
 		
+		print(f"[DEBUG ACQUIRE] {thread_id} - Attempting 'with self._condition:'...")
 		with self._condition:  # Auto-acquires lock
+			print(f"[DEBUG] {thread_id} entered acquire_phone, checking for available phones...")
 			while True:
 				# 1. Release any timed-out phones
 				self._release_timed_out_phones()
 				
 				# 2. Find an available phone
+				print(f"[DEBUG] {thread_id} calling _find_available_phone...")
 				phone_number = self._find_available_phone()
+				print(f"[DEBUG] {thread_id} _find_available_phone returned: {phone_number}")
 				
 				if phone_number:
 					# 3. Lock the phone to this thread
@@ -92,15 +97,19 @@ class PhoneManager:
 					phone.locked_at = datetime.now()
 					
 					self._total_acquired += 1
+					print(f"[DEBUG] {thread_id} successfully acquired phone: {phone_number}")
 					return phone_number
 				
 				# 4. No phone available - wait or timeout
 				remaining_time = end_time - time.time()
+				print(f"[DEBUG] {thread_id} no phone found, remaining time: {remaining_time:.2f}s")
 				if remaining_time <= 0:
+					print(f"[DEBUG] {thread_id} timeout, returning None")
 					return None
 				
 				# Wait for a phone to be released (or timeout)
 				# Other threads will notify when they release phones
+				print(f"[DEBUG] {thread_id} waiting for phone...")
 				self._condition.wait(timeout=min(remaining_time, 1.0))
 	
 	def release_phone(self, phone_number: str, thread_id: Optional[str] = None, success: bool = True) -> bool:
@@ -284,51 +293,51 @@ class HeroSMSPhoneManager(PhoneManager):
 	def _refill_pool(self):
 		"""
 		Refill phone pool from HeroSMS API.
-		Must be called with lock held.
+		**IMPORTANT:** Must be called with lock already held (from acquire_phone)!
 		"""
-		with self._lock:
-			# Count how many we need
-			available_count = sum(1 for p in self._phones.values() 
-			                     if p.used_count < self.max_uses and p.locked_by is None)
-			
-			needed = self.pool_size - available_count
-			
-			if needed <= 0:
-				return
-			
-			print(f"[HeroSMSPhoneManager] Refilling pool: need {needed} phones")
-			
-			# Fetch new numbers
-			for i in range(needed):
-				try:
-					result = self.hero_client.get_number_v2(
-						service=self.service,
-						country=self.country,
-						operator=self.operator,
-						max_price=self.max_price
+		# DO NOT use 'with self._condition:' here - already locked by caller!
+		# Count how many we need
+		available_count = sum(1 for p in self._phones.values() 
+		                     if p.used_count < self.max_uses and p.locked_by is None)
+		
+		needed = self.pool_size - available_count
+		
+		if needed <= 0:
+			return
+		
+		print(f"[HeroSMSPhoneManager] Refilling pool: need {needed} phones")
+		
+		# Fetch new numbers
+		for i in range(needed):
+			try:
+				result = self.hero_client.get_number_v2(
+					service=self.service,
+					country=self.country,
+					operator=self.operator,
+					max_price=self.max_price
+				)
+				
+				if result['status'] == 'success':
+					phone_number = result['phoneNumber']
+					activation_id = str(result['activationId'])
+						
+					# Add to pool
+					self._phones[phone_number] = PhoneInfo(
+						number=phone_number,
+						activation_id=activation_id,
+						activation_data=result
 					)
 					
-					if result['status'] == 'success':
-						phone_number = result['phoneNumber']
-						activation_id = str(result['activationId'])
-						
-						# Add to pool
-						self._phones[phone_number] = PhoneInfo(
-							number=phone_number,
-							activation_id=activation_id,
-							activation_data=result
-						)
-						
-						self._activation_map[phone_number] = activation_id
-						
-						print(f"[HeroSMSPhoneManager] Acquired: {phone_number} (ID: {activation_id})")
-					else:
-						print(f"[HeroSMSPhoneManager] Failed to get number: {result.get('message', 'Unknown')}")
-						break
-						
-				except Exception as e:
-					print(f"[HeroSMSPhoneManager] Error fetching number: {e}")
+					self._activation_map[phone_number] = activation_id
+					
+					print(f"[HeroSMSPhoneManager] Acquired: {phone_number} (ID: {activation_id})")
+				else:
+					print(f"[HeroSMSPhoneManager] Failed to get number: {result.get('message', 'Unknown')}")
 					break
+					
+			except Exception as e:
+				print(f"[HeroSMSPhoneManager] Error fetching number: {e}")
+				break
 	
 	def acquire_phone(self, thread_id: Optional[str] = None, max_wait_seconds: int = 30) -> Optional[str]:
 		"""
@@ -460,10 +469,11 @@ class HeroSMSPhoneManager(PhoneManager):
 		for attempt in range(max_retries):
 			try:
 				status = self.hero_client.get_status(activation_id)
+				print(f"[DEBUG] Attempt {attempt + 1}/{max_retries}, API response: {status}")
 				
 				if status['status'] == 'success' and status.get('code'):
 					code = status['code']
-					print(f"[HeroSMSPhoneManager] Got code: {code}")
+					print(f"[HeroSMSPhoneManager] Got  code: {code}")
 					return code
 				elif status['status'] == 'wait':
 					print(f"[HeroSMSPhoneManager] Waiting... ({attempt + 1}/{max_retries})")
@@ -472,8 +482,8 @@ class HeroSMSPhoneManager(PhoneManager):
 					print(f"[HeroSMSPhoneManager] Activation was canceled")
 					return None
 				else:
-					print(f"[HeroSMSPhoneManager] Error: {status.get('message', 'Unknown')}")
-					return None
+					print(f"[HeroSMSPhoneManager] Unexpected status: {status}")
+					time.sleep(retry_interval)  # Continue instead of return
 					
 			except Exception as e:
 				print(f"[HeroSMSPhoneManager] Error checking status: {e}")
