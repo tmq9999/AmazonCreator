@@ -203,29 +203,29 @@ class AmazonCreator:
 			return {'status': 'error', 'message': f'Add mobile number error: {e}'}
 	
 	def main_flow(self, thread_name):
-		# result = self.continue_captcha()
-		# if result['status'] != 'success' and result['status'] != 'skipped':
-		# 	logger.error(f"{thread_name} {result['message']}")
-		# 	return {'status': 'error','message': result['message']}
-		# self.driver.get("https://www.amazon.com/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F%3Fref_%3Dnav_ya_signin&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0")
-		# toolhelper = ToolHelper()
-		# outlook_full_data = toolhelper.read_email()
-		# email = outlook_full_data['email']
-		# password = outlook_full_data['password']
-		# refresh_token = outlook_full_data['refresh_token']
-		# client_id = outlook_full_data['client_id']
-		# result = self.create_account(email)
-		# if result['status'] != 'success':
-		# 	logger.error(f"{thread_name} {result['message']}")
-		# 	return {'status': 'error','message': result['message']}
-		# result = self.captcha_solving()
-		# if result['status'] != 'success' and result['status'] != 'skipped':
-		# 	logger.error(f"{thread_name} {result['message']}")
-		# 	return {'status': 'error','message': result['message']}
-		# result = self.verify_email_address(email=email, refresh_token=refresh_token, client_id=client_id, thread_name=thread_name)
-		# if result['status'] != 'success':
-		# 	logger.error(f"{thread_name} {result['message']}")
-		# 	return {'status': 'error','message': result['message']}
+		result = self.continue_captcha()
+		if result['status'] != 'success' and result['status'] != 'skipped':
+			logger.error(f"{thread_name} {result['message']}")
+			return {'status': 'error','message': result['message']}
+		self.driver.get("https://www.amazon.com/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F%3Fref_%3Dnav_ya_signin&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0")
+		toolhelper = ToolHelper()
+		outlook_full_data = toolhelper.read_email()
+		email = outlook_full_data['email']
+		password = outlook_full_data['password']
+		refresh_token = outlook_full_data['refresh_token']
+		client_id = outlook_full_data['client_id']
+		result = self.create_account(email)
+		if result['status'] != 'success':
+			logger.error(f"{thread_name} {result['message']}")
+			return {'status': 'error','message': result['message']}
+		result = self.captcha_solving()
+		if result['status'] != 'success' and result['status'] != 'skipped':
+			logger.error(f"{thread_name} {result['message']}")
+			return {'status': 'error','message': result['message']}
+		result = self.verify_email_address(email=email, refresh_token=refresh_token, client_id=client_id, thread_name=thread_name)
+		if result['status'] != 'success':
+			logger.error(f"{thread_name} {result['message']}")
+			return {'status': 'error','message': result['message']}
 		
 
 
