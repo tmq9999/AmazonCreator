@@ -60,12 +60,12 @@ logger = Logger()
 
 def main():
 	hidemium = Hidemium()
-	remote_port, execute_path = hidemium.open_profile("bf5ebfc1-d8b0-4f58-90fd-75e53ece724f")
+	remote_port, execute_path = hidemium.open_profile("0c8bfcee-c8a1-4ada-856a-05d962907447")
 	options = webdriver.ChromeOptions()
 	options.binary_location = execute_path
 	options.add_experimental_option("debuggerAddress", f"127.0.0.1:{remote_port}")
 	driver = webdriver.Chrome(options=options)
-	driver.get('https://www.amazon.com/')
+	# driver.get('https://www.amazon.com/')
 	wait = WebDriverWait(driver, 15)
 	amazoncreator = AmazonCreator(driver, wait)
 	amazoncreator.main_flow("Thread-1")
